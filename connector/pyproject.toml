@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "garmin-mcp-connector"
+version = "0.3.1"
+description = "Local Garmin Connect MCP connector — your credentials never leave your machine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "garth==0.6.3",
+    "mcp>=1.9.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.scripts]
+garmin-mcp = "garmin_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["garmin_mcp"]

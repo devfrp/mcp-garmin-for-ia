@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Garmin MCP — Connect</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%232563eb'/%3E%3Cpolyline points='8,26 16,26 20,14 26,36 30,22 34,26 40,26' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #0a0e13;
+    --card: #10161d;
+    --border: #1e2833;
+    --input-bg: #0b1016;
+    --input-border: #223041;
+    --text: #e6edf3;
+    --muted: #8b98a9;
+    --faint: #5a6673;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --ok: #34d399;
+    --ok-dim: #0f2b22;
+    --ok-border: #1d4a3a;
+    --err: #f87171;
+    --err-dim: #2b1214;
+    --err-border: #542126;
+    --mono: "SFMono-Regular", "JetBrains Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #101923 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1.25rem;
+  }
+  .card {
+    width: 100%;
+    max-width: 430px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.25rem 2rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .head { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.4rem; }
+  .head svg { flex-shrink: 0; border-radius: 12px; }
+  h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin: 0.5rem 0 1.6rem; }
+
+  .field { margin-bottom: 0.95rem; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
+  input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.92rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.18); }
+  input::placeholder { color: var(--faint); }
+
+  .btn {
+    width: 100%;
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.35rem;
+    transition: filter 0.15s, opacity 0.15s;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn.secondary {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text);
+  }
+
+  .banner {
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    margin-top: 0.9rem;
+  }
+  .banner.error { background: var(--err-dim); border: 1px solid var(--err-border); color: var(--err); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--ok-dim);
+    border: 1px solid var(--ok-border);
+    color: var(--ok);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.28rem 0.75rem;
+    margin-bottom: 1.1rem;
+  }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+  .section { margin-top: 1.15rem; }
+  .section-title { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.45rem; }
+  .urlbox {
+    position: relative;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    padding: 0.65rem 3rem 0.65rem 0.8rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: #9fc1ee;
+    word-break: break-all;
+  }
+  .copy {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    background: #16202b;
+    border: 1px solid var(--input-border);
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.22rem 0.55rem;
+    cursor: pointer;
+  }
+  .copy:hover { color: var(--text); border-color: #33465c; }
+  .hint { font-size: 0.78rem; color: var(--faint); line-height: 1.55; margin-top: 0.45rem; }
+  .hint code, .sub code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+
+  .spinner {
+    width: 15px; height: 15px;
+    border: 2px solid rgba(255,255,255,0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: -2px;
+    margin-right: 7px;
+    animation: spin 0.7s linear infinite;
+  }
+  .spinner.dark { border-color: rgba(139,152,169,0.3); border-top-color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .center { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem 0; }
+  .foot { margin-top: 1.6rem; text-align: center; font-size: 0.78rem; color: var(--faint); }
+  .foot a { color: var(--muted); cursor: pointer; text-decoration: none; }
+  .foot a:hover { color: var(--text); text-decoration: underline; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="head">
+    <svg width="44" height="44" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="12" fill="#2563eb"/>
+      <polyline points="8,26 16,26 20,14 26,36 30,22 34,26 40,26"
+                fill="none" stroke="#fff" stroke-width="3.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>Garmin MCP</h1>
+  </div>
+  <p class="sub" id="subtitle">Link your Garmin account to Claude. Everything runs on
+  this computer — your credentials go straight to Garmin and nowhere else.</p>
+
+  <!-- Loading -->
+  <div id="view-loading" class="center"><span class="spinner dark"></span>Checking connector…</div>
+
+  <!-- Login -->
+  <div id="view-login" class="hidden">
+    <form id="login-form">
+      <div class="field">
+        <label for="email">Garmin email</label>
+        <input id="email" type="email" placeholder="you@example.com" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+      </div>
+      <button class="btn" id="login-btn" type="submit">Sign in to Garmin</button>
+    </form>
+    <div class="banner error hidden" id="login-error"></div>
+  </div>
+
+  <!-- MFA -->
+  <div id="view-mfa" class="hidden">
+    <p class="sub">Garmin sent a verification code to your email or authenticator app.</p>
+    <form id="mfa-form">
+      <div class="field">
+        <label for="mfa-code">Verification code</label>
+        <input id="mfa-code" type="text" inputmode="numeric" pattern="[0-9]*"
+               placeholder="123456" maxlength="8" required />
+      </div>
+      <button class="btn" id="mfa-btn" type="submit">Verify</button>
+    </form>
+    <div class="banner error hidden" id="mfa-error"></div>
+  </div>
+
+  <!-- Connected -->
+  <div id="view-success" class="hidden">
+    <div class="pill">Connected to Garmin</div>
+
+    <div class="section">
+      <div class="section-title">Claude Desktop · local MCP clients</div>
+      <div class="urlbox"><span id="local-url"></span>
+        <button class="copy" data-copy="local-url">Copy</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">claude.ai in the browser (HTTPS)</div>
+
+      <div id="tunnel-off">
+        <button class="btn secondary" id="tunnel-btn">Create HTTPS link</button>
+        <p class="hint">claude.ai needs an HTTPS URL and authorizes through this
+        connector's own OAuth page. This button opens a free Cloudflare tunnel
+        from this computer — your sign-in stays local.</p>
+      </div>
+
+      <div id="tunnel-on" class="hidden">
+        <div class="urlbox"><span id="tunnel-url"></span>
+          <button class="copy" data-copy="tunnel-url">Copy</button>
+        </div>
+        <p class="hint">Paste into claude.ai → Settings → Connectors → Add custom
+        connector (you can drop the <code>?token=…</code> part). claude.ai will
+        open this connector's authorization page: paste your access token there
+        and approve. The URL changes if the tunnel restarts — for a permanent
+        address, install with <code>get.sh --funnel</code>.</p>
+      </div>
+
+      <div id="tunnel-missing" class="hidden">
+        <div class="urlbox"><span id="cf-install"></span>
+          <button class="copy" data-copy="cf-install">Copy</button>
+        </div>
+        <p class="hint">Install <code>cloudflared</code> with the command above,
+        then click again.</p>
+      </div>
+
+      <div class="banner error hidden" id="tunnel-error"></div>
+    </div>
+
+    <div class="foot"><a id="disconnect">Disconnect this Garmin account</a></div>
+  </div>
+
+  <!-- Connector unreachable -->
+  <div id="view-down" class="hidden">
+    <div class="banner error">The local connector is not responding. Start it with
+    <code>garmin-mcp serve</code> and reload this page.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ["view-loading", "view-login", "view-mfa", "view-success", "view-down"];
+  var sessionId = null;
+
+  function show(view) {
+    views.forEach(function (v) { $(v).classList.toggle("hidden", v !== view); });
+  }
+  function setError(id, msg) {
+    var el = $(id);
+    el.textContent = msg || "";
+    el.classList.toggle("hidden", !msg);
+  }
+  function busy(btnId, on, label, busyLabel) {
+    var btn = $(btnId);
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spinner"></span>' + busyLabel : label;
+  }
+
+  // clipboard (event delegation for all copy buttons)
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".copy");
+    if (!btn) return;
+    var text = $(btn.dataset.copy).textContent.trim();
+    navigator.clipboard.writeText(text).then(function () {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy"; }, 1800);
+    });
+  });
+
+  async function post(path, body) {
+    var resp = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    var data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok) throw new Error(data.error || "Request failed (" + resp.status + ")");
+    return data;
+  }
+
+  function connected(mcpUrl) {
+    $("local-url").textContent = mcpUrl;
+    show("view-success");
+    refreshTunnel();
+  }
+
+  async function refreshTunnel() {
+    try {
+      var st = await (await fetch("/api/tunnel/status")).json();
+      if (st.url) {
+        $("tunnel-url").textContent = st.url;
+        $("tunnel-on").classList.remove("hidden");
+        $("tunnel-off").classList.add("hidden");
+        $("tunnel-missing").classList.add("hidden");
+      }
+    } catch (e) { /* non-blocking */ }
+  }
+
+  async function init() {
+    try {
+      var h = await (await fetch("/health", { cache: "no-store" })).json();
+      if (h.connected && h.mcp_url) connected(h.mcp_url);
+      else show("view-login");
+    } catch (e) {
+      show("view-down");
+    }
+  }
+
+  $("login-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    setError("login-error", null);
+    busy("login-btn", true, "Sign in to Garmin", "Signing in…");
+    try {
+      var data = await post("/api/setup/login", {
+        email: $("email").value.trim(),
+        password: $("password").value,
+      });
+      if (data.mfa_required) { sessionId = data.session_id; show("view-mfa"); }
+      else if (data.mcp_url) connected(data.mcp_url);
+      else throw new Error("Unexpected connector response");
+    } catch (err) {
+      setError("login-error", err.message);
+    } finally {
+      busy("login-btn", false, "Sign in to Garmin", "");
+    }
+  });
+
+  $("mfa-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    setError("mfa-error", null);
+    busy("mfa-btn", true, "Verify", "Verifying…");
+    try {
+      var data = await post("/api/setup/mfa", {
+        session_id: sessionId,
+        mfa_code: $("mfa-code").value.trim(),
+      });
+      if (data.mcp_url) connected(data.mcp_url);
+      else throw new Error("Unexpected connector response");
+    } catch (err) {
+      setError("mfa-error", err.message);
+      busy("mfa-btn", false, "Verify", "");
+    }
+  });
+
+  $("tunnel-btn").addEventListener("click", async function () {
+    setError("tunnel-error", null);
+    busy("tunnel-btn", true, "Create HTTPS link", "Opening tunnel…");
+    try {
+      var data = await post("/api/tunnel/start");
+      $("tunnel-url").textContent = data.url;
+      $("tunnel-on").classList.remove("hidden");
+      $("tunnel-off").classList.add("hidden");
+    } catch (err) {
+      if (err.message === "cloudflared_missing") {
+        $("cf-install").textContent =
+          "# Debian/Ubuntu:\n" +
+          "curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && apt install -y /tmp/cloudflared.deb\n" +
+          "# Arch: pacman -S cloudflared   # macOS: brew install cloudflared";
+        $("tunnel-missing").classList.remove("hidden");
+      } else {
+        setError("tunnel-error", err.message);
+      }
+    } finally {
+      busy("tunnel-btn", false, "Create HTTPS link", "");
+    }
+  });
+
+  $("disconnect").addEventListener("click", async function () {
+    await post("/api/disconnect").catch(function () {});
+    sessionId = null;
+    show("view-login");
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
