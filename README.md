@@ -1,6 +1,8 @@
 # Garmin MCP
 
-> 🇫🇷 [Version française](README.fr.md)
+*Read this in: **English** · [Français](README.fr.md)*
+
+🌐 **Website:** <https://devfrp.github.io/mcp-garmin-for-ia/>
 
 Link your Garmin account to Claude — with **zero third-party server**. One command
 installs a small connector on your own machine (or home server); your Garmin

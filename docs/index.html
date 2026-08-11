@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garmin MCP — link your Garmin account to Claude, self-hosted</title>
+<meta name="description" content="A self-hosted MCP connector that links your Garmin account to Claude with zero third-party server. Activities, sleep, heart rate, Body Battery, stress, HRV.">
+<meta name="author" content="devfrp">
+<meta property="og:title" content="Garmin MCP — your Garmin data in Claude, without a middleman">
+<meta property="og:description" content="One command installs a connector on your own machine. Your Garmin credentials never leave it.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='%230d1013'/><path d='M3 17 h5 l2-5 3 10 3-13 3 16 2-8 h6' fill='none' stroke='%23f0688c' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>">
+<style>
+  :root{
+    /* light: cool datasheet */
+    --bg:#eceff2; --panel:#ffffff; --panel2:#f3f5f7; --term:#12161b;
+    --line:#d3dae0; --line2:#bcc6cf; --ink:#141a20; --dim:#5c6a76;
+    --amber:#bb1f47; --amber-ink:#941638; --lock:#2f9e44;
+    --grid:#e2e7ec;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d1013; --panel:#14181d; --panel2:#191f26; --term:#0a0d10;
+      --line:#262e37; --line2:#3a4753; --ink:#ccd4da; --dim:#7c8791;
+      --amber:#f0688c; --amber-ink:#f58ea8; --lock:#57c96a; --grid:#1a2027;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eceff2; --panel:#ffffff; --panel2:#f3f5f7; --term:#12161b;
+    --line:#d3dae0; --line2:#bcc6cf; --ink:#141a20; --dim:#5c6a76;
+    --amber:#bb1f47; --amber-ink:#941638; --lock:#2f9e44; --grid:#e2e7ec;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1013; --panel:#14181d; --panel2:#191f26; --term:#0a0d10;
+    --line:#262e37; --line2:#3a4753; --ink:#ccd4da; --dim:#7c8791;
+    --amber:#f0688c; --amber-ink:#f58ea8; --lock:#57c96a; --grid:#1a2027;
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.62;-webkit-font-smoothing:antialiased;font-size:16px}
+  a{color:var(--amber);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  .mono{font-family:var(--mono)}
+  .lab{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+
+  /* top bar */
+  .bar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar .wrap{display:flex;align-items:center;gap:18px;height:56px}
+  .logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:600;
+    letter-spacing:.02em;color:var(--ink)}
+  .logo svg{display:block}
+  .bar nav{margin-left:auto;display:flex;gap:20px;align-items:center}
+  .bar nav a{font-family:var(--mono);font-size:.8rem;color:var(--dim);letter-spacing:.03em}
+  .bar nav a:hover{color:var(--ink);text-decoration:none}
+  .bar .gh{border:1px solid var(--line2);padding:6px 12px;border-radius:5px;color:var(--ink)}
+  .bar .gh:hover{border-color:var(--amber)}
+  #themetog{background:none;border:1px solid var(--line2);color:var(--dim);border-radius:5px;
+    width:30px;height:30px;cursor:pointer;font-size:.9rem}
+  #themetog:hover{color:var(--ink);border-color:var(--amber)}
+  .langsel{display:inline-flex;border:1px solid var(--line2);border-radius:5px;overflow:hidden;
+    font-family:var(--mono);font-size:.74rem}
+  .langsel a{padding:5px 9px;color:var(--dim);letter-spacing:.04em}
+  .langsel a:hover{color:var(--ink);text-decoration:none}
+  .langsel a.active{background:var(--amber);color:#fff}
+  @media (prefers-color-scheme:dark){.langsel a.active{color:#0d1013}}
+  :root[data-theme="dark"] .langsel a.active{color:#0d1013}
+  :root[data-theme="light"] .langsel a.active{color:#fff}
+  @media(max-width:680px){.bar nav a.opt{display:none}}
+
+  /* hero */
+  .hero{border-bottom:1px solid var(--line);position:relative}
+  .hero .wrap{padding:60px 22px 0}
+  .tag{display:inline-flex;align-items:center;gap:9px}
+  .tag .led{width:8px;height:8px;border-radius:50%;background:var(--lock);
+    box-shadow:0 0 8px 1px color-mix(in srgb,var(--lock) 60%,transparent)}
+  h1{font-size:clamp(2.2rem,6.4vw,3.9rem);line-height:1.02;letter-spacing:-.02em;
+    margin:18px 0 0;text-wrap:balance;font-weight:800}
+  h1 .u{color:var(--amber)}
+  .sub{font-size:clamp(1.02rem,2.3vw,1.24rem);color:var(--dim);max-width:620px;margin:14px 0 0}
+  .cta{display:flex;flex-wrap:wrap;gap:11px;margin:26px 0 34px}
+  .btn{font-family:var(--mono);font-size:.86rem;border-radius:5px;padding:11px 18px;
+    border:1px solid var(--line2);color:var(--ink);cursor:pointer;background:var(--panel);
+    transition:border-color .12s,transform .12s;letter-spacing:.02em}
+  .btn:hover{text-decoration:none;transform:translateY(-1px);border-color:var(--amber)}
+  .btn.p{background:var(--amber);color:#fff;border-color:var(--amber);font-weight:600}
+  @media (prefers-color-scheme:dark){.btn.p{color:#0d1013}}
+  :root[data-theme="dark"] .btn.p{color:#0d1013}
+  :root[data-theme="light"] .btn.p{color:#fff}
+
+  /* terminal command */
+  .term{background:var(--term);border:1px solid var(--line);border-radius:6px;
+    display:flex;align-items:center;gap:12px;padding:13px 13px 13px 16px;max-width:700px}
+  .term .p{color:var(--amber);font-family:var(--mono);user-select:none}
+  .term code{font-family:var(--mono);color:#d6dee6;font-size:.86rem;flex:1;overflow-x:auto;white-space:nowrap}
+  .term button{font-family:var(--mono);background:#20272f;border:1px solid #313b45;color:#9aa6b1;
+    border-radius:4px;padding:6px 11px;cursor:pointer;font-size:.76rem;white-space:nowrap}
+  .term button:hover{color:#fff;border-color:var(--amber)}
+
+  /* trace */
+  .scope{margin-top:40px;border-top:1px solid var(--line);position:relative;height:118px}
+  .scope canvas{display:block;width:100%;height:118px}
+  .scope .rd{position:absolute;top:10px;right:16px;font-family:var(--mono);font-size:.68rem;
+    letter-spacing:.12em;color:var(--dim)}
+
+  /* section scaffold */
+  .sec{border-bottom:1px solid var(--line);padding:56px 0}
+  .head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .head .idx{font-family:var(--mono);font-size:.72rem;color:var(--amber);letter-spacing:.1em}
+  h2{font-size:clamp(1.45rem,3.6vw,2rem);margin:0;letter-spacing:-.01em;font-weight:750;text-wrap:balance}
+  .lede{color:var(--dim);max-width:660px;margin:14px 0 30px}
+
+  /* modules */
+  .mods{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr));overflow:hidden}
+  .mod{background:var(--panel);padding:22px}
+  .mod:hover{background:var(--panel2)}
+  .mod .lab{margin-bottom:9px}
+  .mod h3{margin:0 0 5px;font-size:1.04rem}
+  .mod p{margin:0;color:var(--dim);font-size:.92rem}
+  .mod h3 code,.mod p code{font-family:var(--mono);font-size:.86em;color:var(--amber-ink)}
+
+  /* register readout */
+  .rdout{border:1px solid var(--line);border-radius:6px;overflow:hidden;overflow-x:auto}
+  .rdout table{width:100%;border-collapse:collapse;min-width:520px}
+  .rdout th{font-family:var(--mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);text-align:left;padding:11px 16px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .rdout td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top;font-size:.92rem}
+  .rdout tr:last-child td{border-bottom:none}
+  .rdout tr:hover td{background:var(--panel2)}
+  .rdout .v{font-family:var(--mono);color:var(--amber);font-size:.86rem}
+  .rdout .s{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;color:var(--lock)}
+  .rdout .s.open{color:var(--dim)}
+  .rdout td b{font-weight:650} .rdout td span{color:var(--dim)}
+
+  /* signal flow */
+  .flow{display:grid;gap:12px}
+  .node{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:16px 18px;
+    display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+  .node .n{font-family:var(--mono);font-size:.82rem;color:var(--amber);white-space:nowrap}
+  .node .d{color:var(--dim);font-size:.92rem}
+  .node.hw{border-color:var(--amber);border-left-width:3px}
+  .flow .arrow{font-family:var(--mono);color:var(--line2);text-align:center;font-size:.8rem;line-height:1}
+
+  /* install cols */
+  .cols{display:grid;gap:18px;grid-template-columns:1fr 1fr}
+  @media(max-width:680px){.cols{grid-template-columns:1fr}}
+  pre.blk{background:var(--term);border:1px solid var(--line);border-radius:6px;padding:16px;
+    overflow-x:auto;font-family:var(--mono);font-size:.82rem;color:#d6dee6;line-height:1.7;margin:0}
+  pre.blk .c{color:#6f7c88} pre.blk .f{color:var(--amber)}
+  .cols h3{font-family:var(--mono);font-size:.8rem;letter-spacing:.06em;color:var(--dim);
+    text-transform:uppercase;margin:0 0 10px}
+
+  /* steps */
+  .steps{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .steps li{display:grid;grid-template-columns:110px 1fr;gap:16px;align-items:start;
+    border:1px solid var(--line);border-radius:6px;padding:14px 16px;background:var(--panel)}
+  .chip{font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;padding:4px 8px;border-radius:4px;
+    text-align:center;font-weight:600;align-self:start}
+  .c-done{background:color-mix(in srgb,var(--lock) 15%,transparent);color:var(--lock);
+    border:1px solid color-mix(in srgb,var(--lock) 40%,transparent)}
+  .c-part{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--amber-ink);
+    border:1px solid color-mix(in srgb,var(--amber) 40%,transparent)}
+  .c-card{background:var(--panel2);color:var(--dim);border:1px solid var(--line2)}
+  .steps b{font-weight:650} .steps .d{color:var(--dim);font-size:.92rem}
+  @media(max-width:560px){.steps li{grid-template-columns:1fr}}
+
+  footer{padding:40px 0 64px;color:var(--dim);font-size:.88rem}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-start}
+  footer .disc{max-width:560px}
+  footer .links{font-family:var(--mono);font-size:.82rem;display:flex;gap:8px;flex-wrap:wrap}
+  .kbd{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line2);
+    padding:1px 6px;border-radius:4px;font-size:.85em;color:var(--ink)}
+</style>
+</head>
+<body>
+
+<header class="bar"><div class="wrap">
+  <a class="logo" href="#top">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="5" fill="var(--panel2)" stroke="var(--line2)"/><path d="M4 17 h4 l2-5 3 10 3-13 3 16 2-8 h5" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+    garmin-mcp
+  </a>
+  <nav>
+    <a class="opt" href="#tools">Tools</a>
+    <a class="opt" href="#clients">Clients</a>
+    <a href="#install">Install</a>
+    <span class="langsel" role="group" aria-label="Language">
+      <a href="index.html" class="active" aria-current="page">EN</a>
+      <a href="fr.html">FR</a>
+    </span>
+    <a class="gh" href="https://github.com/devfrp/mcp-garmin-for-ia">GitHub&nbsp;↗</a>
+    <button id="themetog" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
+  </nav>
+</div></header>
+
+<main id="top">
+<section class="hero">
+  <div class="wrap">
+    <span class="tag"><span class="led"></span><span class="lab">MCP connector · self-hosted · zero third-party server</span></span>
+    <h1>Your Garmin data,<br><span class="u">in Claude</span>.</h1>
+    <p class="sub">One command installs a small connector on your own machine. Your Garmin email
+    and password go from your browser to that machine to Garmin — and nowhere else. No hosting
+    provider, and not this project, can ever see them.</p>
+    <div class="cta">
+      <a class="btn p" href="#install">Install in one line</a>
+      <a class="btn" href="#clients">Connect a client</a>
+      <a class="btn" href="https://github.com/devfrp/mcp-garmin-for-ia">Source</a>
+    </div>
+    <div class="term">
+      <span class="p">$</span>
+      <code id="cmd">curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh</code>
+      <button id="cpb" onclick="cp()">copy</button>
+    </div>
+  </div>
+  <div class="scope" aria-hidden="true">
+    <span class="rd">HR · HRV · BODY BATTERY · STRESS · SLEEP</span>
+    <canvas id="scope"></canvas>
+  </div>
+</section>
+
+<section class="sec" id="about"><div class="wrap">
+  <div class="head"><span class="idx">00</span><h2>Nothing in the middle</h2></div>
+  <p class="lede">Most connectors ask you to hand your Garmin credentials to somebody else's
+  server. This one runs on hardware you control — a laptop, a home server, a Proxmox container,
+  a VPS. The installer sets everything up under your own user, registers the connector as a
+  service that starts with the machine (systemd or launchd) and prints the sign-in links.
+  OAuth tokens live in <code class="mono">~/.config/garmin-mcp/</code>; the password is never
+  stored. It works with <b>Claude Code</b>, <b>Claude Desktop</b>, <b>claude.ai</b> in the browser,
+  and any other MCP client.</p>
+</div></section>
+
+<section class="sec" id="tools"><div class="wrap">
+  <div class="head"><span class="idx">01</span><h2>What Claude can read</h2></div>
+  <p class="lede">Nine tools, straight from the Garmin Connect API — read-only.</p>
+  <div class="mods">
+    <div class="mod"><div class="lab">Training</div><h3>Activities</h3>
+      <p>The activity list, and the full detail of any single one — splits, laps, the whole record.</p></div>
+    <div class="mod"><div class="lab">Day</div><h3>Daily summary</h3>
+      <p>Steps, calories, intensity minutes, floors — the day at a glance.</p></div>
+    <div class="mod"><div class="lab">Recovery</div><h3>Sleep</h3>
+      <p>Stages, duration and sleep score, night by night.</p></div>
+    <div class="mod"><div class="lab">Cardio</div><h3>Heart rate</h3>
+      <p>Resting heart rate and the intraday series.</p></div>
+    <div class="mod"><div class="lab">Energy</div><h3>Body Battery</h3>
+      <p>The charge/drain curve across the day.</p></div>
+    <div class="mod"><div class="lab">Load</div><h3>Stress &amp; HRV</h3>
+      <p>Stress levels and heart-rate variability — the two that say whether to push or rest.</p></div>
+    <div class="mod"><div class="lab">Account</div><h3>User profile</h3>
+      <p>The profile behind the numbers, so the figures get read in context.</p></div>
+    <div class="mod"><div class="lab">Any client</div><h3>Plain MCP</h3>
+      <p>No Claude-only trick: any MCP client can point at the same endpoint.</p></div>
+  </div>
+</div></section>
+
+<section class="sec" id="install"><div class="wrap">
+  <div class="head"><span class="idx">02</span><h2>Install</h2></div>
+  <p class="lede">Linux and macOS. The script installs Tailscale when it needs it
+  (<span class="kbd">--tailscale</span> / <span class="kbd">--funnel</span>) and
+  <span class="kbd">--no-sudo</span> forbids any privilege escalation — implicit when running
+  as root.</p>
+  <div class="cols">
+    <div>
+      <h3>Personal machine</h3>
+      <pre class="blk">curl -fsSL https://raw.githubusercontent.com/<span class="f">devfrp/mcp-garmin-for-ia</span>/main/get.sh | sh</pre>
+      <h3 style="margin-top:18px">Home server / LXC / VPS</h3>
+      <pre class="blk"><span class="c"># LAN + Tailscale (home server)</span>
+… | sh -s -- <span class="f">--server</span>
+
+<span class="c"># bind to the Tailscale IP only (VPS with a public IP)</span>
+… | sh -s -- <span class="f">--server --tailscale</span>
+
+<span class="c"># + a permanent public HTTPS URL for claude.ai</span>
+… | sh -s -- <span class="f">--funnel</span></pre>
+    </div>
+    <div>
+      <h3>Sign in to Garmin</h3>
+      <pre class="blk"><span class="c"># open the page printed by the installer</span>
+http://127.0.0.1:8765/setup        <span class="c"># local</span>
+http://&lt;server-ip&gt;:8765/setup      <span class="c"># LAN / tailnet</span></pre>
+      <p class="lede" style="margin:12px 0 0;font-size:.92rem">MFA is supported. Sign-in endpoints
+      only ever answer on private addresses — never on the public HTTPS entry points.</p>
+      <h3 style="margin-top:18px">CLI</h3>
+      <pre class="blk">garmin-mcp               <span class="c"># start the connector</span>
+garmin-mcp <span class="f">login</span>         <span class="c"># sign in from the terminal</span>
+garmin-mcp <span class="f">url</span>           <span class="c"># print your MCP URL</span>
+garmin-mcp <span class="f">tunnel</span>        <span class="c"># Cloudflare quick tunnel</span>
+garmin-mcp <span class="f">logout</span>        <span class="c"># disconnect Garmin</span>
+garmin-mcp <span class="f">rotate-token</span>  <span class="c"># new token, old URLs die</span></pre>
+    </div>
+  </div>
+</div></section>
+
+<section class="sec" id="clients"><div class="wrap">
+  <div class="head"><span class="idx">03</span><h2>Connect a client</h2></div>
+  <p class="lede">Local clients use the token URL. claude.ai needs HTTPS and OAuth — the
+  connector implements both.</p>
+  <div class="rdout"><table>
+    <thead><tr><th>Client</th><th>What to use</th><th>Transport</th></tr></thead>
+    <tbody>
+      <tr><td><b>Claude Code</b></td><td class="v">claude mcp add -s user --transport http garmin "&lt;MCP URL&gt;"</td><td class="s">TOKEN</td></tr>
+      <tr><td><b>Claude Desktop</b><br><span>and other local MCP clients</span></td><td class="v">http://…:8765/garmin/?token=…</td><td class="s">TOKEN</td></tr>
+      <tr><td><b>claude.ai</b> (browser)<br><span>Settings → Connectors → Add custom connector</span></td><td class="v">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net/garmin/</td><td class="s">OAUTH</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="steps" style="margin-top:18px">
+    <li><span class="chip c-done">1 · HTTPS</span><div><b>Get a public address</b> · <span class="d"><code class="mono">--funnel</code> at install time gives a permanent <code class="mono">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net</code> that survives reboots — or use the <b>Create HTTPS link</b> button on the setup page for a Cloudflare quick tunnel, whose URL changes at every restart.</span></div></li>
+    <li><span class="chip c-done">2 · PASTE</span><div><b>Add the connector</b> · <span class="d">paste the HTTPS base URL followed by <code class="mono">/garmin/</code>, with no token.</span></div></li>
+    <li><span class="chip c-done">3 · APPROVE</span><div><b>Authorize</b> · <span class="d">claude.ai opens the connector's authorization page: paste the access token from <code class="mono">garmin-mcp url</code> or the setup page, and approve. The authorization persists.</span></div></li>
+    <li><span class="chip c-part">IF IT FAILS</span><div><b>DNS still propagating</b> · <span class="d">if claude.ai cannot reach the server right after enabling Funnel, wait a few minutes. If it persists, rename the machine in the Tailscale admin console — a fresh DNS name resolves immediately — and re-run the installer.</span></div></li>
+  </ul>
+</div></section>
+
+<section class="sec" id="how"><div class="wrap">
+  <div class="head"><span class="idx">04</span><h2>How it works</h2></div>
+  <p class="lede">One process on your machine, two ways in — and only one of them is reachable
+  from the internet.</p>
+  <div class="flow">
+    <div class="node"><span class="n">browser</span><span class="d">Signs in on the setup page — the password goes straight to Garmin SSO and is never stored</span></div>
+    <div class="arrow">↓</div>
+    <div class="node hw"><span class="n">garmin-mcp</span><span class="d">The connector, on <b>your</b> machine · OAuth tokens in <code class="mono">~/.config/garmin-mcp/</code> · talks to Garmin SSO + the Connect API</span></div>
+    <div class="arrow">↓</div>
+    <div class="node"><span class="n">/garmin/</span><span class="d">MCP endpoint — the per-install token as <code class="mono">?token=</code>, as a path prefix <code class="mono">/t/&lt;token&gt;/garmin/</code>, or as a <code class="mono">Bearer</code> header ← Claude Code / Desktop</span></div>
+    <div class="arrow">↓</div>
+    <div class="node"><span class="n">public HTTPS</span><span class="d">Funnel or quick tunnel — only the MCP endpoint and the OAuth surface answer; sign-in, health and disconnect stay private, everything else returns 404 ← claude.ai (OAuth 2.1 + PKCE)</span></div>
+  </div>
+  <p class="lede" style="margin-top:26px">Internet scanners probing a public address are normal —
+  everything they touch returns 404.</p>
+  <div class="rdout" style="margin-top:8px"><table>
+    <thead><tr><th>Proxmox LXC</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><b>Runs as root</b><br><span>without ever calling <code class="mono">sudo</code></span></td><td>Installs a system-wide systemd unit that starts with the CT.</td></tr>
+      <tr><td><b>Tailscale needs <code class="mono">/dev/net/tun</code></b></td><td>If the container lacks it, the script stops and prints the exact two lines to add to <code class="mono">/etc/pve/lxc/&lt;CTID&gt;.conf</code> on the Proxmox host.</td></tr>
+      <tr><td><b>Debian containers</b></td><td>Need <code class="mono">apt install python3-venv</code> first.</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <div class="disc"><b class="mono">garmin-mcp</b> · MIT.<br>
+    Self-hosted connector for the Garmin Connect API. Your credentials never leave the machine
+    you install it on. Not affiliated with or endorsed by Garmin&nbsp;Ltd.</div>
+  <div class="links">
+    <a href="https://github.com/devfrp/mcp-garmin-for-ia">GitHub</a><span>·</span>
+    <a href="https://github.com/devfrp/mcp-garmin-for-ia/blob/main/README.md">README</a><span>·</span>
+    <a href="fr.html">Français</a><span>·</span>
+    <a href="https://devfrp.github.io">devfrp.github.io</a>
+  </div>
+</div></footer>
+
+<script>
+(function(){
+  // theme (persisted)
+  var root=document.documentElement, tog=document.getElementById('themetog');
+  var saved=null; try{saved=localStorage.getItem('garmin-theme');}catch(e){}
+  if(saved==='dark'||saved==='light') root.setAttribute('data-theme',saved);
+  function cur(){var t=root.getAttribute('data-theme');
+    if(t) return t;
+    return matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+  tog.addEventListener('click',function(){
+    var n=cur()==='dark'?'light':'dark';
+    root.setAttribute('data-theme',n);
+    try{localStorage.setItem('garmin-theme',n);}catch(e){}
+    draw(true);
+  });
+
+  // copy
+  window.cp=function(){var b=document.getElementById('cpb');
+    navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(function(){
+      b.textContent='copied ✓'; setTimeout(function(){b.textContent='copy';},1500);});};
+
+  // heart-rate trace
+  var cv=document.getElementById('scope'), ctx=cv.getContext('2d'), t=0, raf=null;
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function accent(){return getComputedStyle(root).getPropertyValue('--amber').trim()||'#f0688c';}
+  function grid(){return getComputedStyle(root).getPropertyValue('--grid').trim()||'#1a2027';}
+  function size(){var d=Math.min(devicePixelRatio||1,2);
+    cv.width=cv.clientWidth*d; cv.height=cv.clientHeight*d; ctx.setTransform(d,0,0,d,0,0);}
+  // one beat, normalised over [0,1] → offset from the baseline
+  function beat(u){
+    if(u<0.06) return -0.10*Math.sin(u/0.06*Math.PI);        // P
+    if(u<0.11) return 0;
+    if(u<0.14) return 0.16*((u-0.11)/0.03);                  // Q
+    if(u<0.19) return 0.16-1.16*((u-0.14)/0.05);             // R
+    if(u<0.24) return -1.00+1.34*((u-0.19)/0.05);            // S
+    if(u<0.30) return 0.34-0.34*((u-0.24)/0.06);
+    if(u<0.52) return -0.22*Math.sin((u-0.30)/0.22*Math.PI); // T
+    return 0;
+  }
+  function draw(once){
+    var w=cv.clientWidth,h=cv.clientHeight, base=h*0.60, amp=h*0.42;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle=grid(); ctx.lineWidth=1;
+    for(var x=0;x<w;x+=44){ctx.beginPath();ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,h);ctx.stroke();}
+    ctx.beginPath();ctx.moveTo(0,base+.5);ctx.lineTo(w,base+.5);ctx.stroke();
+    ctx.strokeStyle=accent(); ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    var period=190; // px per beat
+    for(var i=0;i<=w;i+=1.5){
+      var u=(((i+t)%period)+period)%period/period;
+      var y=base+beat(u)*amp;
+      i?ctx.lineTo(i,y):ctx.moveTo(i,y);
+    }
+    ctx.stroke();
+    if(once) return;
+    t+=0.9; raf=requestAnimationFrame(function(){draw(false);});
+  }
+  function start(){size(); if(reduce){draw(true);} else {if(raf)cancelAnimationFrame(raf); draw(false);}}
+  addEventListener('resize',start); start();
+})();
+</script>
+</body>
+</html>
