@@ -140,6 +140,8 @@
   .copy:hover { color: var(--text); border-color: #33465c; }
   .hint { font-size: 0.78rem; color: var(--faint); line-height: 1.55; margin-top: 0.45rem; }
   .hint code, .sub code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+  .hint.warn { color: var(--err); }
+  .hint.warn code { color: var(--err); opacity: 0.85; }
 
   .spinner {
     width: 15px; height: 15px;
@@ -228,6 +230,12 @@
         <p class="hint">claude.ai needs an HTTPS URL and authorizes through this
         connector's own OAuth page. This button opens a free Cloudflare tunnel
         from this computer — your sign-in stays local.</p>
+        <p class="hint warn">⚠️ This tunnel is reachable from the public Internet
+        (anyone with the access token can use it), and the free trycloudflare.com
+        URL changes on every restart. For a <b>permanent address reachable only
+        from your own Tailscale network</b> (no public exposure), reinstall with
+        <code>get.sh --tailscale-serve</code> instead. If you do need a public
+        address, <code>get.sh --funnel</code> gives you a permanent one.</p>
       </div>
 
       <div id="tunnel-on" class="hidden">
@@ -237,8 +245,11 @@
         <p class="hint">Paste into claude.ai → Settings → Connectors → Add custom
         connector (you can drop the <code>?token=…</code> part). claude.ai will
         open this connector's authorization page: paste your access token there
-        and approve. The URL changes if the tunnel restarts — for a permanent
-        address, install with <code>get.sh --funnel</code>.</p>
+        and approve.</p>
+        <p class="hint warn">⚠️ This URL is reachable from the public Internet and
+        changes if the tunnel restarts. For a permanent address <b>private to your
+        own Tailscale network</b>, reinstall with <code>get.sh --tailscale-serve</code>
+        — or <code>get.sh --funnel</code> for a permanent public one.</p>
       </div>
 
       <div id="tunnel-missing" class="hidden">

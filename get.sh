@@ -1,31 +1,40 @@
 #!/bin/sh
 # Garmin MCP — one-line installer (Linux & macOS).
-#   Personal machine : curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh
-#   Home server (LAN): curl -fsSL … | sh -s -- --server
-#   VPS / Tailscale  : curl -fsSL … | sh -s -- --server --tailscale
-#   Stable HTTPS URL : curl -fsSL … | sh -s -- --funnel   (Tailscale Funnel,
-#                      public https://<machine>.<tailnet>.ts.net for claude.ai)
-#   --no-sudo        : never invoke sudo/doas (privileged steps are skipped
-#                      with a hint; unnecessary when already root)
+#   Personal machine  : curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh
+#   Home server (LAN) : curl -fsSL … | sh -s -- --server
+#   VPS / Tailscale   : curl -fsSL … | sh -s -- --server --tailscale
+#   Stable HTTPS URL, private to your tailnet only (no public exposure):
+#                       curl -fsSL … | sh -s -- --tailscale-serve
+#   Stable HTTPS URL, reachable from the public Internet (Tailscale Funnel —
+#   see the warning this prints; prefer --tailscale-serve if you don't need it):
+#                       curl -fsSL … | sh -s -- --funnel
+#   --no-sudo         : never invoke sudo/doas (privileged steps are skipped
+#                       with a hint; unnecessary when already root)
 # Installs everything under your user account, starts the connector at boot,
 # and gives you the sign-in page. Your Garmin credentials never leave the machine.
+# Safe to re-run any time (e.g. to switch flags or update): it never deletes
+# your Garmin login or logs Tailscale out, it only reinstalls the connector
+# code and restarts the service.
 set -e
 
 MODE="local"
 TS_ONLY=""
 NO_SUDO=""
 FUNNEL=""
+TS_SERVE=""
 for arg in "$@"; do
     case "$arg" in
-        --server)    MODE="server" ;;
-        --tailscale) MODE="server"; TS_ONLY="yes" ;;
-        --funnel)    MODE="server"; FUNNEL="yes" ;;
+        --server)         MODE="server" ;;
+        --tailscale)       MODE="server"; TS_ONLY="yes" ;;
+        --tailscale-serve) MODE="server"; TS_SERVE="yes" ;;
+        --funnel)          MODE="server"; FUNNEL="yes" ;;
         --no-sudo)   NO_SUDO="yes" ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
     esac
 done
-# Funnel proxies through localhost, so it needs the connector on 0.0.0.0.
-[ -n "$FUNNEL" ] && TS_ONLY=""
+# Funnel and tailscale-serve proxy through localhost, so they both need the
+# connector reachable on 0.0.0.0 (not just the Tailscale IP).
+{ [ -n "$FUNNEL" ] || [ -n "$TS_SERVE" ]; } && TS_ONLY=""
 
 REPO_TARBALL="https://github.com/devfrp/mcp-garmin-for-ia/archive/refs/heads/main.tar.gz"
 REPO_GIT="https://github.com/devfrp/mcp-garmin-for-ia.git"
@@ -102,10 +111,19 @@ if [ "$MODE" = "server" ]; then
         ensure_tailscale
         BIND="$(tailscale_ip)"
     else
-        [ -n "$FUNNEL" ] && ensure_tailscale
+        { [ -n "$FUNNEL" ] || [ -n "$TS_SERVE" ]; } && ensure_tailscale
         BIND="0.0.0.0"
     fi
 fi
+
+# Re-running this installer is safe: it never deletes your Garmin login or
+# logs Tailscale out. It only reinstalls the connector code, (re)writes the
+# service unit and (re)starts it — existing state is just picked back up.
+GARMIN_MCP_CFG_DIR="${GARMIN_MCP_HOME:-$HOME/.config/garmin-mcp}"
+[ -f "${GARMIN_MCP_CFG_DIR}/tokens/oauth2_token.json" ] \
+    && say "Existing Garmin login found in ${GARMIN_MCP_CFG_DIR} — keeping it"
+[ -n "$(tailscale_ip)" ] \
+    && say "Existing Tailscale connection found — keeping it (not logging out)"
 CHECK_HOST="$BIND"
 [ "$BIND" = "0.0.0.0" ] && CHECK_HOST="127.0.0.1"
 LINK="http://${CHECK_HOST}:${PORT}/setup"
@@ -254,19 +272,37 @@ done
 curl -fsS -m 2 "http://${CHECK_HOST}:${PORT}/health" >/dev/null 2>&1 \
     || die "the connector did not start (try: ${VENV}/bin/garmin-mcp serve --host ${BIND})"
 
-# ── 7. Stable public HTTPS URL via Tailscale Funnel (--funnel) ──
+# ── 7. Stable HTTPS URL via Tailscale (--funnel: public Internet, or
+#       --tailscale-serve: private to your tailnet only) ──
 FUNNEL_URL=""
-if [ -n "$FUNNEL" ]; then
-    say "Enabling the stable HTTPS address (Tailscale Funnel)"
-    if ! $ROOTDO tailscale funnel --bg "$PORT"; then
-        echo "If a link to enable Funnel for your tailnet was shown above, open it," >&2
-        die "then re-run this script (tailscale funnel failed)"
+if [ -n "$FUNNEL" ] || [ -n "$TS_SERVE" ]; then
+    if [ -n "$FUNNEL" ]; then
+        say "Enabling the stable HTTPS address (Tailscale Funnel — public Internet)"
+        TS_SUBCMD="funnel"
+    else
+        say "Enabling the stable HTTPS address (Tailscale Serve — private to your tailnet)"
+        TS_SUBCMD="serve"
+    fi
+    if ! $ROOTDO tailscale "$TS_SUBCMD" --bg "$PORT"; then
+        if [ -n "$FUNNEL" ]; then
+            echo "If a link to enable Funnel for your tailnet was shown above, open it," >&2
+            die "then re-run this script (tailscale funnel failed)"
+        fi
+        die "tailscale serve failed (check: tailscale status)"
     fi
     TSDNS="$($ROOTDO tailscale status --json 2>/dev/null \
         | "$PY" -c "import json,sys; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))" 2>/dev/null)"
     TOKEN="$(cat "${GARMIN_MCP_HOME:-$HOME/.config/garmin-mcp}/access_token" 2>/dev/null)"
     if [ -n "$TSDNS" ]; then
         FUNNEL_URL="https://${TSDNS}/garmin/?token=${TOKEN:-<run: garmin-mcp url>}"
+    fi
+    if [ -n "$FUNNEL" ]; then
+        echo "" >&2
+        echo "warning: Tailscale Funnel makes this URL reachable from the public" >&2
+        echo "Internet, not just your tailnet — anyone who gets the token can call the" >&2
+        echo "MCP endpoint (the token still gates every request; sign-in, health and" >&2
+        echo "disconnect stay private). If you only need this from your own devices," >&2
+        echo "reinstall with:  sh get.sh --tailscale-serve" >&2
     fi
 fi
 
@@ -282,7 +318,11 @@ else
 fi
 echo ""
 if [ -n "$FUNNEL_URL" ]; then
-    echo "  Stable HTTPS MCP URL for claude.ai (survives reboots):"
+    if [ -n "$FUNNEL" ]; then
+        echo "  Stable HTTPS MCP URL for claude.ai (survives reboots, PUBLIC Internet):"
+    else
+        echo "  Stable HTTPS MCP URL for claude.ai (survives reboots, private to your tailnet):"
+    fi
     echo "    ${FUNNEL_URL}"
     echo ""
 fi
