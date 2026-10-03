@@ -232,10 +232,12 @@
         from this computer — your sign-in stays local.</p>
         <p class="hint warn">⚠️ This tunnel is reachable from the public Internet
         (anyone with the access token can use it), and the free trycloudflare.com
-        URL changes on every restart. For a <b>permanent address reachable only
-        from your own Tailscale network</b> (no public exposure), reinstall with
-        <code>get.sh --tailscale-serve</code> instead. If you do need a public
-        address, <code>get.sh --funnel</code> gives you a permanent one.</p>
+        URL changes on every restart. For a <b>permanent public address</b>,
+        reinstall with <code>get.sh --funnel</code> instead. Note that
+        <code>get.sh --tailscale-serve</code> (private, no public exposure) does
+        <b>not</b> work here — claude.ai's "Add custom connector" is called from
+        Anthropic's own servers, which can never reach a private tailnet address;
+        it only works for direct local clients like Claude Code.</p>
       </div>
 
       <div id="tunnel-on" class="hidden">
@@ -247,9 +249,8 @@
         open this connector's authorization page: paste your access token there
         and approve.</p>
         <p class="hint warn">⚠️ This URL is reachable from the public Internet and
-        changes if the tunnel restarts. For a permanent address <b>private to your
-        own Tailscale network</b>, reinstall with <code>get.sh --tailscale-serve</code>
-        — or <code>get.sh --funnel</code> for a permanent public one.</p>
+        changes if the tunnel restarts. For a permanent <b>public</b> address,
+        reinstall with <code>get.sh --funnel</code>.</p>
       </div>
 
       <div id="tunnel-missing" class="hidden">

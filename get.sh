@@ -3,10 +3,13 @@
 #   Personal machine  : curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh
 #   Home server (LAN) : curl -fsSL … | sh -s -- --server
 #   VPS / Tailscale   : curl -fsSL … | sh -s -- --server --tailscale
-#   Stable HTTPS URL, private to your tailnet only (no public exposure):
+#   Stable HTTPS URL, private to your tailnet only (no public exposure) — for
+#   a client you run yourself on a tailnet machine (e.g. Claude Code). Does
+#   NOT work for claude.ai's/Desktop's "Add custom connector" (see --funnel):
 #                       curl -fsSL … | sh -s -- --tailscale-serve
-#   Stable HTTPS URL, reachable from the public Internet (Tailscale Funnel —
-#   see the warning this prints; prefer --tailscale-serve if you don't need it):
+#   Stable HTTPS URL, reachable from the public Internet (Tailscale Funnel) —
+#   required for claude.ai's/Desktop's "Add custom connector" (see the
+#   warning this prints):
 #                       curl -fsSL … | sh -s -- --funnel
 #   --no-sudo         : never invoke sudo/doas (privileged steps are skipped
 #                       with a hint; unnecessary when already root)
@@ -301,7 +304,10 @@ if [ -n "$FUNNEL" ] || [ -n "$TS_SERVE" ]; then
         echo "warning: Tailscale Funnel makes this URL reachable from the public" >&2
         echo "Internet, not just your tailnet — anyone who gets the token can call the" >&2
         echo "MCP endpoint (the token still gates every request; sign-in, health and" >&2
-        echo "disconnect stay private). If you only need this from your own devices," >&2
+        echo "disconnect stay private). This is required for claude.ai's or Claude" >&2
+        echo "Desktop's \"Add custom connector\" (it's called from Anthropic's own" >&2
+        echo "servers, never your tailnet). If you're instead connecting a client that" >&2
+        echo "runs directly on one of your own tailnet machines (e.g. Claude Code)," >&2
         echo "reinstall with:  sh get.sh --tailscale-serve" >&2
     fi
 fi

@@ -279,15 +279,19 @@
 <span class="c"># écoute uniquement sur l'IP Tailscale (VPS à IP publique)</span>
 … | sh -s -- <span class="f">--server --tailscale</span>
 
-<span class="c"># + une URL HTTPS permanente pour claude.ai, PRIVÉE à ton tailnet</span>
+<span class="c"># + une URL HTTPS permanente, privée à ton tailnet, pour les clients</span>
+<span class="c"># locaux que tu fais tourner toi-même (Claude Code...) — PAS pour claude.ai</span>
 … | sh -s -- <span class="f">--tailscale-serve</span>
 
-<span class="c"># + une URL HTTPS permanente pour claude.ai, PUBLIQUE — voir l'avertissement</span>
+<span class="c"># + une URL HTTPS permanente, PUBLIQUE — nécessaire pour le connecteur claude.ai</span>
 … | sh -s -- <span class="f">--funnel</span></pre>
       <p class="lede" style="margin:10px 0 0;font-size:.86rem;color:var(--amber-ink)">
       ⚠️ <code class="mono">--funnel</code> expose l'endpoint MCP et la surface OAuth à
-      <b>tout Internet</b> — le token d'accès est le seul verrou. Préfère
-      <code class="mono">--tailscale-serve</code> sauf besoin spécifique.</p>
+      <b>tout Internet</b> — le token d'accès est le seul verrou.
+      <code class="mono">--tailscale-serve</code> est privé, mais ne fonctionne <b>pas</b> avec
+      « Ajouter un connecteur personnalisé » de claude.ai/Claude Desktop — cette fonctionnalité
+      est appelée depuis les serveurs d'Anthropic, jamais ton tailnet. Utilise-le seulement pour
+      des clients qui tournent directement sur une machine de ton tailnet (Claude Code, etc).</p>
     </div>
     <div>
       <h3>Se connecter à Garmin</h3>
@@ -310,22 +314,23 @@ garmin-mcp <span class="f">rotate-token</span>  <span class="c"># nouveau jeton,
 
 <section class="sec" id="clients"><div class="wrap">
   <div class="head"><span class="idx">03</span><h2>Connecter un client</h2></div>
-  <p class="lede">Les clients locaux utilisent l'URL à jeton. claude.ai exige HTTPS et OAuth — le
-  connecteur implémente les deux.</p>
+  <p class="lede">Les clients locaux appellent le connecteur en direct et peuvent utiliser une URL
+  privée. « Ajouter un connecteur personnalisé » de claude.ai est appelé depuis les serveurs
+  d'Anthropic, il lui faut donc toujours une adresse HTTPS publique.</p>
   <div class="rdout"><table>
     <thead><tr><th>Client</th><th>Ce qu'il faut utiliser</th><th>Transport</th></tr></thead>
     <tbody>
-      <tr><td><b>Claude Code</b></td><td class="v">claude mcp add -s user --transport http garmin "&lt;URL MCP&gt;"</td><td class="s">JETON</td></tr>
-      <tr><td><b>Claude Desktop</b><br><span>et autres clients MCP locaux</span></td><td class="v">http://…:8765/garmin/?token=…</td><td class="s">JETON</td></tr>
-      <tr><td><b>claude.ai</b> (navigateur)<br><span>Réglages → Connecteurs → Ajouter un connecteur</span></td><td class="v">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net/garmin/</td><td class="s">OAUTH</td></tr>
+      <tr><td><b>Claude Code</b></td><td class="v">claude mcp add -s user --transport http garmin "&lt;URL&gt;"</td><td class="s">JETON</td></tr>
+      <tr><td><b>Claude Desktop</b><br><span>config MCP locale</span></td><td class="v">http://…:8765/garmin/?token=…</td><td class="s">JETON</td></tr>
+      <tr><td><b>claude.ai</b> (navigateur) / Desktop<br><span>fenêtre « Ajouter un connecteur personnalisé »</span></td><td class="v">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net/garmin/ <span style="color:var(--dim)">(public uniquement)</span></td><td class="s">OAUTH</td></tr>
     </tbody>
   </table></div>
   <ul class="steps" style="margin-top:18px">
-    <li><span class="chip c-done">1 · HTTPS</span><div><b>Obtenir une adresse HTTPS</b> · <span class="d"><code class="mono">--tailscale-serve</code> à l'installation donne une adresse permanente <code class="mono">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net</code> qui survit aux redémarrages et reste <b>privée à ton tailnet</b> — recommandé. <code class="mono">--funnel</code> donne la même adresse permanente mais joignable depuis <b>tout Internet</b> (voir l'avertissement ci-dessous). Le bouton <b>Create HTTPS link</b> de la page de configuration donne à la place un tunnel Cloudflare rapide — public aussi, et son URL change à chaque redémarrage.</span></div></li>
+    <li><span class="chip c-done">1 · HTTPS</span><div><b>Obtenir une adresse HTTPS publique</b> · <span class="d">Seulement nécessaire pour la ligne « Ajouter un connecteur personnalisé » ci-dessus. <code class="mono">--funnel</code> à l'installation donne une adresse permanente <code class="mono">https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net</code> qui survit aux redémarrages (voir l'avertissement ci-dessous). Le bouton <b>Create HTTPS link</b> de la page de configuration donne à la place un tunnel Cloudflare rapide — public aussi, et son URL change à chaque redémarrage. La config locale de Claude Code / Desktop peut à la place utiliser une adresse privée <code class="mono">--tailscale-serve</code> ou l'URL à jeton classique — pas besoin d'exposition publique là.</span></div></li>
     <li><span class="chip c-done">2 · COLLER</span><div><b>Ajouter le connecteur</b> · <span class="d">colle l'URL HTTPS de base suivie de <code class="mono">/garmin/</code>, sans jeton.</span></div></li>
     <li><span class="chip c-done">3 · AUTORISER</span><div><b>Valider</b> · <span class="d">claude.ai ouvre la page d'autorisation du connecteur : colle le jeton d'accès donné par <code class="mono">garmin-mcp url</code> ou par la page de configuration, puis approuve. L'autorisation persiste.</span></div></li>
-    <li><span class="chip c-part">AVERTISSEMENT</span><div><b>Funnel et les tunnels rapides sont publics</b> · <span class="d">quiconque obtient le token d'accès peut appeler l'endpoint MCP à travers eux — le token est le seul verrou (connexion, santé et déconnexion restent privées, les chemins inconnus renvoient 404). Utilise <code class="mono">--tailscale-serve</code> à la place, sauf besoin spécifique d'accès depuis l'extérieur de ton tailnet.</span></div></li>
-    <li><span class="chip c-part">SI ÇA ÉCHOUE</span><div><b>DNS en cours de propagation</b> · <span class="d">si claude.ai n'atteint pas le serveur juste après l'activation de Funnel ou de Tailscale Serve, attends quelques minutes. Si ça persiste, renomme la machine dans la console Tailscale — un nom DNS neuf résout immédiatement — et relance l'installeur.</span></div></li>
+    <li><span class="chip c-part">AVERTISSEMENT</span><div><b>Funnel et les tunnels rapides sont publics</b> · <span class="d">quiconque obtient le token d'accès peut appeler l'endpoint MCP à travers eux — le token est le seul verrou (connexion, santé et déconnexion restent privées, les chemins inconnus renvoient 404). <code class="mono">--tailscale-serve</code> est privé mais ne peut pas du tout être utilisé pour « Ajouter un connecteur personnalisé » de claude.ai/Desktop — ce flux est toujours appelé depuis les serveurs d'Anthropic, jamais ton tailnet.</span></div></li>
+    <li><span class="chip c-part">SI ÇA ÉCHOUE</span><div><b>DNS en cours de propagation</b> · <span class="d">si claude.ai n'atteint pas le serveur juste après l'activation de Funnel, attends quelques minutes. Si ça persiste, renomme la machine dans la console Tailscale — un nom DNS neuf résout immédiatement — et relance l'installeur.</span></div></li>
   </ul>
 </div></section>
 
@@ -338,13 +343,15 @@ garmin-mcp <span class="f">rotate-token</span>  <span class="c"># nouveau jeton,
     <div class="arrow">↓</div>
     <div class="node hw"><span class="n">garmin-mcp</span><span class="d">Le connecteur, sur <b>ta</b> machine · jetons OAuth dans <code class="mono">~/.config/garmin-mcp/</code> · dialogue avec Garmin SSO et l'API Connect</span></div>
     <div class="arrow">↓</div>
-    <div class="node"><span class="n">/garmin/</span><span class="d">Endpoint MCP — le jeton de l'installation en <code class="mono">?token=</code>, en préfixe de chemin <code class="mono">/t/&lt;token&gt;/garmin/</code>, ou en en-tête <code class="mono">Bearer</code> ← Claude Code / Desktop</span></div>
+    <div class="node"><span class="n">/garmin/</span><span class="d">Endpoint MCP — le jeton de l'installation en <code class="mono">?token=</code>, en préfixe de chemin <code class="mono">/t/&lt;token&gt;/garmin/</code>, ou en en-tête <code class="mono">Bearer</code> ← clients locaux, en direct : Claude Code, config locale de Desktop, ou <code class="mono">--tailscale-serve</code> pour tout client sur ton tailnet</span></div>
     <div class="arrow">↓</div>
-    <div class="node"><span class="n">Entrée HTTPS</span><span class="d">Tailscale Serve (privée à ton tailnet), Funnel ou tunnel rapide (publics) — seuls l'endpoint MCP et la surface OAuth répondent ; connexion, santé et déconnexion restent privées, tout le reste renvoie 404 ← claude.ai (OAuth 2.1 + PKCE)</span></div>
+    <div class="node"><span class="n">Entrée HTTPS publique</span><span class="d">Funnel ou tunnel rapide — seuls l'endpoint MCP et la surface OAuth répondent ; connexion, santé et déconnexion restent privées, tout le reste renvoie 404 ← claude.ai / « connecteur personnalisé », appelé depuis les serveurs d'Anthropic (OAuth 2.1 + PKCE)</span></div>
   </div>
   <p class="lede" style="margin-top:26px">Avec Funnel ou un tunnel rapide, les scanners qui sondent
-  l'adresse publique, c'est normal — tout ce qu'ils touchent renvoie 404. Tailscale Serve évite
-  totalement ça : l'adresse n'est jamais joignable depuis l'extérieur de ton tailnet.</p>
+  l'adresse publique, c'est normal — tout ce qu'ils touchent renvoie 404. <code class="mono">--tailscale-serve</code>
+  évite totalement ça pour les clients locaux directs, mais c'est une adresse séparée et privée
+  que « Ajouter un connecteur personnalisé » de claude.ai ne peut jamais joindre — ce flux a
+  toujours besoin de l'adresse publique.</p>
   <div class="rdout" style="margin-top:8px"><table>
     <thead><tr><th>Proxmox LXC</th><th>Ce qu'il faut faire</th></tr></thead>
     <tbody>
