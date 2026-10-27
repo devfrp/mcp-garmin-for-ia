@@ -1,0 +1,31 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "site",
+  "shape": "Split Studio",
+  "theme": "dusk",
+  "axes": "dark/grotesk-sans/cool",
+  "hero": "Poster",
+  "nav": "slab",
+  "footer": "mast",
+  "imagery": "photograph 1",
+  "photos": [
+   "Vallee-brouillard.jpg"
+  ],
+  "entry": "none",
+  "sections": [
+   "hero",
+   "split",
+   "rows",
+   "code",
+   "table",
+   "rows",
+   "faq"
+  ],
+  "signature": "the credential path, three stops and nowhere else, in glass over fog at dusk",
+  "waived": [],
+  "prompt": "garmin MCP connector docs",
+  "date": "2026-10-27"
+ }
+]
