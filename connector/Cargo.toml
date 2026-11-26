@@ -1,0 +1,38 @@
+[package]
+name = "garmin-mcp"
+version = "0.4.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Local Garmin Connect MCP connector — your credentials never leave your machine"
+license = "MIT"
+repository = "https://github.com/devfrp/mcp-garmin-for-ia"
+readme = "README.md"
+
+[[bin]]
+name = "garmin-mcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+getrandom = "0.3"
+hmac = "0.12"
+percent-encoding = "2"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "cookies"] }
+rpassword = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+sha2 = "0.10"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors"] }
+url = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = "s"
