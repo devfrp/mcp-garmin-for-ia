@@ -1,0 +1,65 @@
+name: Release
+
+# Push a tag like v0.4.0 to build the connector for every platform get.sh
+# supports and publish the binaries as a GitHub release.
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl,      os: ubuntu-latest, cross: true }
+          - { target: aarch64-unknown-linux-musl,     os: ubuntu-latest, cross: true }
+          - { target: armv7-unknown-linux-musleabihf, os: ubuntu-latest, cross: true }
+          - { target: x86_64-apple-darwin,            os: macos-latest }
+          - { target: aarch64-apple-darwin,           os: macos-latest }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: taiki-e/install-action@v2
+        if: matrix.cross
+        with:
+          tool: cross
+      - name: Build
+        working-directory: connector
+        run: |
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build --release --locked --target ${{ matrix.target }}
+          else
+            cargo build --release --locked --target ${{ matrix.target }}
+          fi
+      - name: Package
+        shell: bash
+        run: |
+          asset="garmin-mcp-${{ matrix.target }}.tar.gz"
+          tar -czf "$asset" -C "connector/target/${{ matrix.target }}/release" garmin-mcp
+          if command -v sha256sum >/dev/null; then sha256sum "$asset" > "$asset.sha256"
+          else shasum -a 256 "$asset" > "$asset.sha256"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: garmin-mcp-*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: garmin-mcp-*
+          generate_release_notes: true

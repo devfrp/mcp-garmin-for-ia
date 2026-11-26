@@ -31,6 +31,9 @@ curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.s
 # Écoute uniquement sur l'IP Tailscale (obligatoire sur un VPS avec IP publique) :
 curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh -s -- --server --tailscale
 
+# Pareil avec NetBird au lieu de Tailscale (netbird.io ou auto-hébergé, voir plus bas) :
+curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh -s -- --server --netbird
+
 # URL HTTPS permanente, PRIVÉE à ton tailnet — pour Claude Code ou tout
 # client que tu fais tourner toi-même sur une machine de ton tailnet.
 # Ne marche PAS pour « Ajouter un connecteur personnalisé » de claude.ai
@@ -43,15 +46,18 @@ curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.s
 curl -fsSL https://raw.githubusercontent.com/devfrp/mcp-garmin-for-ia/main/get.sh | sh -s -- --funnel
 ```
 
-Le script installe tout sous l'utilisateur courant, installe Tailscale si
-besoin (`--tailscale`/`--tailscale-serve`/`--funnel`), enregistre le
+Le script télécharge un binaire unique et autonome (écrit en Rust — sans
+Python ni runtime, somme de contrôle vérifiée) dans le dossier de
+l'utilisateur courant, installe Tailscale ou NetBird si besoin
+(`--tailscale`/`--tailscale-serve`/`--funnel`, `--netbird`), enregistre le
 connecteur en service qui démarre avec la machine (unité systemd système en
 root, unité user + lingering sinon, launchd sous macOS) et affiche les liens
 de connexion. `--no-sudo` interdit toute élévation de privilèges (implicite
 en root). **Peut être relancé sans risque** à tout moment (pour changer
 d'options ou mettre à jour) : il ne supprime jamais ta connexion Garmin ni ne
-déconnecte Tailscale, il ne fait que réinstaller le code du connecteur et
-redémarrer le service.
+déconnecte Tailscale/NetBird, il ne fait que réinstaller le binaire du
+connecteur et redémarrer le service. La mise à jour depuis l'ancienne version
+Python conserve ta connexion Garmin et ton token d'accès.
 
 > [!WARNING]
 > `--funnel` rend l'endpoint MCP et la surface OAuth de ton connecteur
@@ -73,7 +79,8 @@ redémarrer le service.
 ## Connexion à Garmin
 
 Ouvrez la page affichée par l'installeur — `http://127.0.0.1:8765/setup` en
-local, ou `http://<ip-du-serveur>:8765/setup` depuis votre LAN/tailnet — et
+local, ou `http://<ip-du-serveur>:8765/setup` depuis votre LAN, tailnet ou
+réseau NetBird — et
 connectez-vous avec votre compte Garmin (MFA supporté). Les endpoints de
 connexion ne répondent que sur ces adresses privées, jamais sur l'adresse
 HTTPS stable (Funnel ou Tailscale Serve) ni sur un quick tunnel Cloudflare.
@@ -85,7 +92,7 @@ n'acceptent pas le même genre d'URL :
 
 | Client | Quoi utiliser |
 |---|---|
-| **Claude Code** — `claude mcp add -s user --transport http garmin "<URL>"` | Toute URL joignable **directement depuis la machine qui fait tourner Claude Code** : l'URL à token du LAN/Tailscale, voire une adresse HTTPS `--tailscale-serve` si cette machine est sur ton tailnet. |
+| **Claude Code** — `claude mcp add -s user --transport http garmin "<URL>"` | Toute URL joignable **directement depuis la machine qui fait tourner Claude Code** : l'URL à token du LAN/Tailscale/NetBird, voire une adresse HTTPS `--tailscale-serve` si cette machine est sur ton tailnet. |
 | **Claude Desktop** — entrée MCP locale dans `claude_desktop_config.json` | Pareil — l'URL à token affichée par la page de configuration (`http://…:8765/garmin/?token=…`), joignable directement depuis cette machine. |
 | **claude.ai** (navigateur) **ou** la fenêtre **« Ajouter un connecteur personnalisé »** de Claude Desktop | Une URL HTTPS **publique** uniquement — `--funnel` ou le quick tunnel Cloudflare. Cette fonctionnalité est vérifiée et appelée depuis les serveurs d'Anthropic, elle ne pourra donc jamais joindre une adresse `--tailscale-serve`, peu importe la machine ou le réseau utilisés. |
 
@@ -116,10 +123,44 @@ quelques minutes. Si ça persiste, renommez la machine dans la console
 d'administration Tailscale (un nom DNS neuf résout immédiatement) et relancez
 l'installeur.
 
+## NetBird
+
+[NetBird](https://netbird.io) est une alternative open source à Tailscale,
+utilisable avec le cloud netbird.io ou ton propre serveur de management
+auto-hébergé. `--netbird` l'installe si besoin, rejoint ton réseau et fait
+écouter le connecteur **uniquement** sur l'IP NetBird de cette machine —
+jamais sur le LAN ni sur une interface publique :
+
+```sh
+# Interactif : connecte-toi avec l'URL affichée par netbird
+curl -fsSL …/get.sh | sh -s -- --server --netbird
+
+# Sans interaction, avec une clé d'installation (setup key, depuis le
+# dashboard NetBird). Préfère la variable d'environnement : elle n'apparaît
+# ni dans l'historique du shell ni dans `ps`.
+curl -fsSL …/get.sh | NETBIRD_SETUP_KEY=XXXX-… sh -s -- --server --netbird
+
+# Serveur de management NetBird auto-hébergé
+curl -fsSL …/get.sh | sh -s -- --server --netbird \
+    --netbird-management-url=https://netbird.example.com
+```
+
+La page de connexion est alors sur `http://<ip-netbird>:8765/setup` (ou
+`http://<pair>.netbird.cloud:8765/setup` avec le DNS NetBird) depuis n'importe
+quel pair de ton réseau, et l'URL à token marche pour Claude Code et la
+config locale de Claude Desktop sur ces pairs. `--tailscale` et `--netbird`
+peuvent se combiner : le connecteur écoute alors sur les deux adresses VPN.
+
+NetBird est privé, comme `--tailscale` : « Ajouter un connecteur
+personnalisé » de claude.ai (appelé depuis les serveurs d'Anthropic) ne peut
+pas le joindre. Pour ce cas-là, utilise le bouton **Create HTTPS link** de la
+page de connexion (quick tunnel Cloudflare) ou `--funnel`.
+
 ## CLI
 
 ```sh
 garmin-mcp               # démarre le connecteur (défaut : serve)
+garmin-mcp serve --host 127.0.0.1 --host 100.92.4.17   # plusieurs adresses
 garmin-mcp login         # connexion depuis le terminal plutôt que la page
 garmin-mcp url           # affiche votre URL MCP (--base <url> pour une base publique)
 garmin-mcp tunnel        # quick tunnel Cloudflare depuis le terminal
@@ -163,10 +204,26 @@ Navigateur ──▶ connecteur garmin-mcp (votre machine) ──▶ SSO + API G
 ### LXC Proxmox
 
 Le script tourne en root sans jamais appeler `sudo`, et installe une unité
-systemd système qui démarre avec le CT. Tailscale a besoin de `/dev/net/tun` :
-si le conteneur ne l'a pas, le script s'arrête et affiche les deux lignes
-exactes à ajouter dans `/etc/pve/lxc/<CTID>.conf` sur l'hôte Proxmox. Les
-conteneurs Debian nécessitent aussi `apt install python3-venv` au préalable.
+systemd système qui démarre avec le CT. Tailscale et NetBird ont besoin de
+`/dev/net/tun` : si le conteneur ne l'a pas, le script s'arrête et affiche les
+deux lignes exactes à ajouter dans `/etc/pve/lxc/<CTID>.conf` sur l'hôte
+Proxmox. Rien d'autre n'est nécessaire : le connecteur est un binaire statique.
+
+## Compiler depuis les sources
+
+Les binaires précompilés couvrent Linux (x86_64, arm64, armv7 — musl
+statique) et macOS (Intel, Apple Silicon). Ailleurs, `get.sh` compile
+automatiquement depuis les sources si `cargo` est disponible
+([rustup.rs](https://rustup.rs), Rust ≥ 1.88). À la main :
+
+```sh
+cargo install --locked --git https://github.com/devfrp/mcp-garmin-for-ia.git garmin-mcp
+# ou, depuis un clone (get.sh l'installe en service) :
+GARMIN_MCP_SRC=./connector sh get.sh
+```
+
+Développement : `cd connector && cargo test` (ajoute `-- --ignored` pour
+interroger aussi la vraie page de connexion Garmin, sans identifiants).
 
 ## Licence
 

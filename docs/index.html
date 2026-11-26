@@ -127,7 +127,7 @@
     <div class="container">
       <div class="head">
         <h2>Install</h2>
-        <p class="lead">Linux and macOS. The script installs Tailscale when it needs it (<code>--tailscale</code>, <code>--tailscale-serve</code>, <code>--funnel</code>) and <code>--no-sudo</code> forbids any privilege escalation, implicit when running as root.</p>
+        <p class="lead">Linux and macOS. One self-contained binary, written in Rust: no Python, no runtime. The script installs Tailscale or NetBird when it needs it (<code>--tailscale</code>, <code>--tailscale-serve</code>, <code>--funnel</code>, <code>--netbird</code>) and <code>--no-sudo</code> forbids any privilege escalation, implicit when running as root.</p>
       </div>
       <div class="codes">
         <figure class="glass code">
@@ -140,6 +140,10 @@
 … | sh -s -- <span class="f">--server</span>
 <span class="c"># bind to the Tailscale IP only (VPS with a public IP)</span>
 … | sh -s -- <span class="f">--server --tailscale</span>
+<span class="c"># same with NetBird (netbird.io or self-hosted)</span>
+… | sh -s -- <span class="f">--server --netbird</span>
+<span class="c"># unattended / self-hosted: NETBIRD_SETUP_KEY=… and</span>
+<span class="c"># --netbird-management-url=https://netbird.example.com</span>
 <span class="c"># + a permanent HTTPS URL, private to your tailnet, for local clients</span>
 <span class="c"># you run yourself (Claude Code etc), NOT for claude.ai, see warning</span>
 … | sh -s -- <span class="f">--tailscale-serve</span>
@@ -214,8 +218,8 @@ garmin-mcp <span class="f">rotate-token</span>  <span class="c"># new token, old
         <thead><tr><th>Proxmox LXC</th><th>What to do</th></tr></thead>
         <tbody>
           <tr><td><b>Runs as root</b><small>without ever calling <code>sudo</code></small></td><td>Installs a system-wide systemd unit that starts with the CT.</td></tr>
-          <tr><td><b>Tailscale needs <code>/dev/net/tun</code></b></td><td>If the container lacks it, the script stops and prints the exact two lines to add to <code>/etc/pve/lxc/&lt;CTID&gt;.conf</code> on the Proxmox host.</td></tr>
-          <tr><td><b>Debian containers</b></td><td>Need <code>apt install python3-venv</code> first.</td></tr>
+          <tr><td><b>Tailscale and NetBird need <code>/dev/net/tun</code></b></td><td>If the container lacks it, the script stops and prints the exact two lines to add to <code>/etc/pve/lxc/&lt;CTID&gt;.conf</code> on the Proxmox host.</td></tr>
+          <tr><td><b>Nothing else</b></td><td>The connector is a static binary: no Python, no packages to install first.</td></tr>
         </tbody>
       </table></div>
     </div>

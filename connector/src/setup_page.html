@@ -234,10 +234,11 @@
         (anyone with the access token can use it), and the free trycloudflare.com
         URL changes on every restart. For a <b>permanent public address</b>,
         reinstall with <code>get.sh --funnel</code> instead. Note that
-        <code>get.sh --tailscale-serve</code> (private, no public exposure) does
-        <b>not</b> work here — claude.ai's "Add custom connector" is called from
-        Anthropic's own servers, which can never reach a private tailnet address;
-        it only works for direct local clients like Claude Code.</p>
+        <code>get.sh --tailscale-serve</code> and <code>get.sh --netbird</code>
+        (private, no public exposure) do <b>not</b> work here — claude.ai's "Add
+        custom connector" is called from Anthropic's own servers, which can never
+        reach a private tailnet or NetBird address; they only work for direct
+        local clients like Claude Code.</p>
       </div>
 
       <div id="tunnel-on" class="hidden">
